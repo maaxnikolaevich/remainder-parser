@@ -1,50 +1,54 @@
 import datetime
 import pandas as pd
-from Requests import getProducts
+from Requests import get_products_by_store
+
 
 def process():
     data = pd.read_csv(r'data/search_ecom_sku_word.csv', delimiter=';', chunksize=10000)
     begin_time = datetime.datetime.now()
-    result=pd.DataFrame()
+    result = pd.DataFrame()
     for item in data:
-        codesList=item["sku"].values
-        result=pd.concat([result, formToDf(codesList, item)])
+        codes_list = item["sku"].values
+        result = pd.concat([result, form_to_df(codes_list, item)])
     result.to_csv(r'data/res.csv', sep=';', index=False)
     print(f"Время выполнения запроса: {datetime.datetime.now() - begin_time}")
 
 
-def convToDict(products):
-    result={}
-    for currProduct in products:
-        if not currProduct['MATNR'] in result:
-            result[currProduct['MATNR']]=[]
-        result[currProduct['MATNR']].append(currProduct)
+def conv_to_dict(products):
+    result = {}
+    for curr_product in products:
+        if not curr_product['MATNR'] in result:
+            result[curr_product['MATNR']] = []
+        result[curr_product['MATNR']].append(curr_product)
     return result
 
-def formToDf(codesList,data):
-    listProductCodes=[]
-    for productCode in codesList:
-        listProductCodes.append(f"{productCode}")
-    products=getProducts(listProductCodes)
-    product_dict=convToDict(products)
 
-    def vkorgForAvail_01(products):
-        vkorgList=[]
-        for currProduct in products:
-            if currProduct['WHOLESALE']=='X':
-                vkorgList.append(currProduct['VKORG'])
-        vkorgList=list(set(vkorgList))
-        return vkorgList
+def vkorg_for_avail_01(products):
+    vkorg_list = []
+    for curr_product in products:
+        if curr_product['WHOLESALE'] == 'X':
+            vkorg_list.append(curr_product['VKORG'])
+    vkorg_list = list(set(vkorg_list))
+    return vkorg_list
 
-    def vkorgForAvail_02(products):
-        vkorgList=[]
-        for currProduct in products:
-            if currProduct['WHOLESALE']=='':
-                vkorgList.append(currProduct['VKORG'])
-        vkorgList=list(set(vkorgList))
-        return vkorgList
 
-    data['avail_01'] = data['sku'].apply(lambda x: ",".join(vkorgForAvail_01(product_dict[str(x)])) if str(x) in product_dict else 'False')
-    data['avail_02'] = data['sku'].apply(lambda x: ",".join(vkorgForAvail_02(product_dict[str(x)])) if str(x) in product_dict else 'False')
+def vkorg_for_avail_02(products):
+    vkorg_list = []
+    for curr_product in products:
+        if curr_product['WHOLESALE'] == '':
+            vkorg_list.append(curr_product['VKORG'])
+    vkorg_list = list(set(vkorg_list))
+    return vkorg_list
+
+
+def form_to_df(codes_list, data):
+    list_product_codes = []
+    for product_code in codes_list:
+        list_product_codes.append(f"{product_code}")
+    products = get_products_by_store(list_product_codes)
+    product_dict = conv_to_dict(products)
+    data['avail_01'] = data['sku'].apply(
+        lambda x: ",".join(vkorg_for_avail_01(product_dict[str(x)])) if str(x) in product_dict else 'False')
+    data['avail_02'] = data['sku'].apply(
+        lambda x: ",".join(vkorg_for_avail_02(product_dict[str(x)])) if str(x) in product_dict else 'False')
     return data
-
